@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Ten Seconds</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Stop the hidden clock at 10 seconds, once idle and once while busy, and see how busyness bends your sense of time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, phone first. A single stage card that switches between idle and busy trials, a big Stop button, results chart below. Same family look as the other Mind Lab games. */
+:root{
+  --bg:#EDF0F5; --panel:#FFFFFF; --ink:#141B2D; --muted:#5A6378; --line:#D5DAE4; --soft:#F5F7FA;
+  --idle:#2F45C8; --idle-bg:#E3E7FB; --busy:#7A3FC4; --busy-bg:#EEE5FA; --bad:#C62D3A; --ok:#1C7A4E;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1320; --panel:#181D2D; --ink:#E8EBF3; --muted:#9AA2B6; --line:#2B3246; --soft:#12172A;
+  --idle:#9BABFF; --idle-bg:#222B52; --busy:#C9A4FF; --busy-bg:#2E2148; --bad:#FF7F88; --ok:#5FD39A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1320; --panel:#181D2D; --ink:#E8EBF3; --muted:#9AA2B6; --line:#2B3246; --soft:#12172A;
+  --idle:#9BABFF; --idle-bg:#222B52; --busy:#C9A4FF; --busy-bg:#2E2148; --bad:#FF7F88; --ok:#5FD39A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font:700 34px/1 var(--f-display);letter-spacing:-0.02em;margin:0}
+h1 .t{color:var(--busy)}
+.tag{color:var(--muted);font-size:14px;margin:6px 0 0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.how p{margin:0;font-size:15px}
+.how p+p{margin-top:8px}
+.how b{font-weight:500}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mode{font:500 12px var(--f-body);letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:999px}
+.mode.idle{background:var(--idle-bg);color:var(--idle)} .mode.busy{background:var(--busy-bg);color:var(--busy)}
+.prog{font:500 14px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.dots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.dots i{height:6px;border-radius:3px;background:var(--bg)}
+.dots i.idle{background:var(--idle)} .dots i.busy{background:var(--busy)}
+.stage{min-height:170px;border-radius:12px;background:var(--soft);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px}
+.stage .big{font:700 72px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.stage .msg{font-size:15px;color:var(--muted);max-width:32ch}
+.parity{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.key{height:56px;border:0;border-radius:12px;font:500 18px var(--f-body);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:var(--busy-bg);color:var(--busy);transition:transform .06s}
+.key:active{transform:scale(.97)}
+.key.flash-ok{box-shadow:inset 0 0 0 2px var(--ok)} .key.flash-bad{box-shadow:inset 0 0 0 2px var(--bad)}
+.btn{height:56px;border-radius:12px;border:0;background:var(--ink);color:var(--bg);font:500 17px var(--f-body);cursor:pointer;width:100%;touch-action:manipulation}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.stop{background:var(--bad);color:#fff;height:64px;font-size:19px}
+.btn:focus-visible,.key:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.err{min-height:20px;font-size:13px;color:var(--bad);text-align:center;margin:0}
+.row{display:flex;gap:8px}
+h2{font:700 22px/1.2 var(--f-display);margin:0;text-wrap:balance}
+.note{font-size:14px;color:var(--muted);margin:0}
+.chart{width:100%;height:auto;display:block}
+.chart text{font:400 11px var(--f-body);fill:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:50%;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.st{background:var(--bg);border-radius:10px;padding:10px 12px;min-width:0}
+.st small{display:block;font-size:12px;color:var(--muted)}
+.st b{font:500 20px var(--f-mono);font-variant-numeric:tabular-nums}
+.st span{display:block;font-size:12px;color:var(--muted)}
+.plain{background:var(--bg);border-radius:12px;padding:14px 16px}
+.plain h3{font:700 17px/1.3 var(--f-display);margin:0 0 4px}
+.plain p{margin:8px 0 0;font-size:15px;max-width:62ch}
+.plain p b{font-weight:500}
+.hist{font:400 13px var(--f-mono);font-variant-numeric:tabular-nums;width:100%;border-collapse:collapse}
+.hist td,.hist th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+.hist th{font:500 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.hist td:first-child,.hist th:first-child{text-align:left}
+details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+summary{cursor:pointer;font:700 17px var(--f-display)}
+details p{font-size:15px;margin:10px 0 0;max-width:62ch}
+details p b,.sci b{font-weight:500}
+.sci-h{font:700 16px/1.3 var(--f-display);margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+.sci{list-style:none;padding:0;margin:10px 0 0;display:flex;flex-direction:column;gap:10px;font-size:15px;max-width:62ch}
+.sci span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.back{font-size:13px;color:var(--muted);text-decoration:none}
+.back:hover{text-decoration:underline}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){.key{transition:none}}
+</style>
+
+<div class="wrap">
+  <a class="back" href="https://slowriver87.github.io/mindlabfun/">&larr; All Mind Lab games</a>
+  <header>
+    <h1>Ten <span class="t">Seconds</span></h1>
+    <p class="tag">Stop a hidden clock at exactly 10 seconds. Then try it while your mind is busy.</p>
+  </header>
+
+  <section class="panel">
+    <div class="how" id="how">
+      <p><b>Six tries, about a minute and a half.</b> Press start, then press stop when you think 10 seconds have passed. There's no clock to watch.</p>
+      <p><b>Quiet tries:</b> just wait. <b>Busy tries:</b> numbers flash up. Tap odd or even for each one, and still stop at 10 seconds.</p>
+      <p><b>Please don't count in your head.</b> Counting turns it into a counting test. Just go by feel. You'll see your times at the end.</p>
+    </div>
+    <div class="top">
+      <span class="mode idle" id="mode">Quiet</span>
+      <span class="prog" id="prog">Try 1 of 6</span>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="stage" id="stage"><div class="msg" id="stageMsg">Press start when you're ready.</div></div>
+    <div class="parity" id="parity" hidden>
+      <button class="key" id="odd">Odd</button>
+      <button class="key" id="even">Even</button>
+    </div>
+    <p class="err" id="err" aria-live="polite"></p>
+    <button class="btn" id="main">Start</button>
+    <button class="btn ghost" id="restart">Start over</button>
+  </section>
+
+  <section class="panel" id="results" hidden>
+    <h2 id="verdict"></h2>
+    <svg class="chart" id="chart" viewBox="0 0 480 190" role="img" aria-label="Each try placed by how many real seconds passed before you stopped, quiet tries and busy tries"></svg>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--idle)"></i>Quiet tries</span>
+      <span><i class="sw" style="background:var(--busy)"></i>Busy tries</span>
+    </div>
+    <div class="stats">
+      <div class="st"><small>Quiet average</small><b id="idleAvg"></b><span>Real time when you felt 10 seconds</span></div>
+      <div class="st"><small>Busy average</small><b id="busyAvg"></b><span>Same, while tapping odd or even</span></div>
+      <div class="st"><small>Busy-time stretch</small><b id="stretch"></b><span>How much longer you waited when busy</span></div>
+      <div class="st"><small>Odd/even accuracy</small><b id="acc"></b><span>Shows you really were busy</span></div>
+    </div>
+    <div class="plain">
+      <h3>What this means, in plain English</h3>
+      <div id="plain"></div>
+    </div>
+    <div class="row"><button class="btn" id="again">Play again</button></div>
+    <div id="histWrap" hidden>
+      <table class="hist"><thead><tr><th>Run</th><th>Quiet</th><th>Busy</th><th>Stretch</th></tr></thead><tbody id="hist"></tbody></table>
+      <p class="note" id="histAvg" style="margin-top:8px"></p>
+    </div>
+  </section>
+
+  <details>
+    <summary>Why busy time feels shorter</summary>
+    <p><b>Your brain has no real clock.</b> It judges time partly by how much attention it pays to time passing. Think of it as a counter that only ticks when you're paying attention to the clock.</p>
+    <p><b>Busy attention means fewer ticks.</b> When you're tapping odd or even, most of your attention goes to the numbers. Fewer ticks get counted, so 10 real seconds feels like less. You wait longer before it feels like 10.</p>
+    <p><b>A watched pot never boils.</b> The same thing works in reverse. With nothing to do, all your attention goes to time, the counter ticks fast, and waiting feels long.</p>
+    <p><b>Looking back is different.</b> This game asks you to judge time as it happens. When people judge time looking back, busy periods can seem longer, because they left more memories. That's why a packed vacation flies by but seems long afterward.</p>
+    <p><b>What this can't tell you.</b> Six tries is a small sample, and some people count in their heads even when asked not to. The odd and even numbers appear at uneven times on purpose, so they can't be used as a beat to count along with. The history table across several runs is more reliable than one result.</p>
+
+    <h3 class="sci-h">The science</h3>
+    <ul class="sci">
+      <li><b>The internal clock idea.</b> An early model proposed a pacemaker in the brain sending out pulses, with a counter adding them up. More pulses counted means more time felt. <span>Treisman, 1963</span></li>
+      <li><b>Errors grow with length.</b> People's time judgments get less precise the longer the interval. Being off by 1 second on 10 is about as accurate as being off by 10 seconds on 100. This is called the scalar property. <span>Gibbon, 1977</span></li>
+      <li><b>Attention is the gate.</b> The attentional-gate model added a gate between the pacemaker and the counter. Pulses only get through when you pay attention to time. Busy tasks narrow the gate. <span>Zakay and Block, 1997</span></li>
+      <li><b>Confirmed across many studies.</b> A review combining results from many experiments found that mental workload makes time judged in the moment seem shorter, and makes time judged in hindsight seem longer. <span>Block, Hancock and Zakay, 2010</span></li>
+      <li><b>Fear stretches memory, not perception.</b> People dropped 31 meters into a safety net remembered the fall as lasting longer than it did. But they couldn't read a fast-flashing number during the fall, which they should have if time truly slowed. The stretch was in memory. <span>Stetson, Fiesta and Eagleman, 2007</span></li>
+      <li><b>The holiday paradox.</b> A new, busy trip seems to fly by while it's happening, then feels long when you look back. Routine weeks feel the opposite. Writer Claudia Hammond named this the holiday paradox. <span>Hammond, 2012</span></li>
+    </ul>
+    <p><b>What's still debated.</b> Researchers don't agree that a single internal clock exists at all. Some think timing comes from the natural rhythms of many brain networks, with no central pacemaker. The attention effect in this game holds up either way. What's debated is the machinery behind it.</p>
+  </details>
+
+  <p class="foot">Based on Treisman 1963, Zakay and Block 1997, and Block, Hancock and Zakay 2010.</p>
+</div>
+
+<script>
+(function(){
+  var TARGET=10;
+  var S,stim=null;
+  function $(id){return document.getElementById(id)}
+  function fresh(){var first=Math.random()<.5?"idle":"busy",order=[];for(var i=0;i<6;i++)order.push(i%2===0?first:(first==="idle"?"busy":"idle"));
+    return {order:order,i:0,trials:[],running:false,t0:0,digits:0,correct:0,cur:null,answered:true,done:false}}
+
+  function dots(){var h="";for(var k=0;k<6;k++)h+='<i class="'+(k<S.trials.length?S.order[k]:"")+'"></i>';$("dots").innerHTML=h}
+  function ui(){
+    var m=S.order[Math.min(S.i,5)];
+    $("mode").className="mode "+m;$("mode").textContent=m==="idle"?"Quiet":"Busy";
+    $("prog").textContent=S.done?"Done":"Try "+(S.i+1)+" of 6";
+    dots()}
+  function idleScreen(){
+    var m=S.order[S.i];$("parity").hidden=true;
+    $("stage").innerHTML='<div class="msg">'+(m==="idle"?"Quiet try. Press start, wait, and press stop at 10 seconds.":"Busy try. Tap odd or even for each number, and press stop at 10 seconds.")+'</div>';
+    $("main").textContent="Start";$("main").className="btn"}
+
+  function nextDigit(){
+    if(!S.running)return;
+    if(!S.answered&&S.cur!==null){}
+    var d;do{d=1+Math.floor(Math.random()*9)}while(d===S.cur);
+    S.cur=d;S.answered=false;S.digits++;
+    $("stage").innerHTML='<div class="big">'+d+'</div><div class="msg">Odd or even?</div>';
+    stim=setTimeout(nextDigit,650+Math.random()*700)}
+
+  function start(){
+    var m=S.order[S.i];S.running=true;$("err").textContent="";
+    $("main").textContent="Stop at 10 seconds";$("main").className="btn stop";
+    if(m==="busy"){$("parity").hidden=false;S.digits=0;S.correct=0;S.cur=null;S.answered=true;nextDigit()}
+    else $("stage").innerHTML='<div class="msg">Timing. Press stop when you feel 10 seconds have passed.</div>';
+    S.t0=performance.now()}
+
+  function stop(){
+    var el=(performance.now()-S.t0)/1000,m=S.order[S.i];
+    S.running=false;clearTimeout(stim);
+    if(el<2){$("err").textContent="That was under 2 seconds, probably an early tap. Let's redo this try.";idleScreen();return}
+    var shown=m==="busy"?Math.max(0,S.digits-(S.answered?0:1)):0;
+    S.trials.push({m:m,t:el,acc:m==="busy"?(shown?S.correct/shown:null):null});
+    S.i++;
+    if(S.i>=6){S.done=true;ui();$("parity").hidden=true;$("stage").innerHTML='<div class="msg">All six tries done.</div>';$("main").hidden=true;results();return}
+    ui();idleScreen();$("stage").innerHTML='<div class="msg">Saved. '+(S.order[S.i]==="idle"?"Next is a quiet try.":"Next is a busy try: tap odd or even as numbers appear.")+'</div>'}
+
+  function parity(isOdd,btn){
+    if(!S.running||S.answered||S.cur===null)return;
+    S.answered=true;var ok=(S.cur%2===1)===isOdd;if(ok)S.correct++;
+    btn.classList.add(ok?"flash-ok":"flash-bad");setTimeout(function(){btn.classList.remove("flash-ok","flash-bad")},180)}
+
+  function mean(a){var s=0;a.forEach(function(x){s+=x});return a.length?s/a.length:null}
+  function f1(x){return x.toFixed(1)+"s"}
+  function results(){
+    var I=S.trials.filter(function(t){return t.m==="idle"}).map(function(t){return t.t}),B=S.trials.filter(function(t){return t.m==="busy"});
+    var mi=mean(I),mb=mean(B.map(function(t){return t.t})),accs=B.map(function(t){return t.acc}).filter(function(a){return a!=null});
+    var acc=accs.length?Math.round(mean(accs)*100):null,stretch=Math.round((mb/mi-1)*100);
+    $("idleAvg").textContent=f1(mi);$("busyAvg").textContent=f1(mb);
+    $("stretch").textContent=(stretch>=0?"+":"−")+Math.abs(stretch)+"%";$("acc").textContent=acc==null?"--":acc+"%";
+    $("verdict").textContent=stretch>=10?"Busy time slipped by. You waited "+stretch+"% longer when your mind was occupied.":(stretch>-10?"Busy or quiet, your 10 seconds came out about the same this run.":"You stopped sooner when busy this run, which is the less common result.");
+    chart();
+    $("plain").innerHTML=plain(mi,mb,stretch,acc);
+    $("results").hidden=false;
+    save({d:Date.now(),i:Math.round(mi*10)/10,b:Math.round(mb*10)/10,x:stretch});
+    $("results").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})}
+
+  function plain(mi,mb,stretch,acc){
+    var out=[],ie=mi-TARGET;
+    out.push(stretch>=10?"<b>The short version.</b> When you had nothing to do, you stopped at about "+mi.toFixed(1)+" seconds on average. When your mind was busy with odd and even, you stopped at about "+mb.toFixed(1)+" seconds. Busy time felt shorter, so you let more real time pass before it felt like 10.":
+      (stretch>-10?"<b>The short version.</b> Your quiet and busy tries came out close, "+mi.toFixed(1)+" and "+mb.toFixed(1)+" seconds. Most people wait noticeably longer when busy. If you counted in your head, that can erase the difference.":
+      "<b>The short version.</b> You stopped sooner when busy ("+mb.toFixed(1)+" seconds) than when quiet ("+mi.toFixed(1)+"). That's the opposite of the usual result, and it can happen by chance in six tries."));
+    out.push("<b>Your quiet sense of time.</b> "+(Math.abs(ie)<1?"Your quiet tries averaged "+mi.toFixed(1)+" seconds, within a second of 10. That's a well-tuned sense of time.":(ie>0?"Your quiet tries averaged "+mi.toFixed(1)+" seconds, so 10 seconds feels a bit longer to you than it really is. You tend to run late.":"Your quiet tries averaged "+mi.toFixed(1)+" seconds, so 10 seconds feels shorter to you than it really is. You tend to jump early.")));
+    out.push("<b>Reading the chart.</b> Each dot is one try, placed by how many real seconds passed before you pressed stop. The dashed line is exactly 10. Blue dots are quiet tries and purple dots are busy ones. If busyness didn't matter, the two colors would sit together. "+(stretch>=10?"Yours are split, with purple to the right of blue.":"Yours sit fairly close together."));
+    out.push("<b>The stretch, "+(stretch>=0?"+":"")+stretch+"%.</b> This compares your busy average with your quiet average. +20% would mean that when busy, you let 20% more real time pass before it felt like the same 10 seconds. 0% means busyness made no difference.");
+    if(acc!=null)out.push("<b>Odd and even, "+acc+"%.</b> "+(acc>=80?"You got most of them right, so your attention really was on the numbers. That's what makes the comparison fair.":"You missed quite a few. If your attention drifted back to the clock, the busy tries weren't really busy, which can shrink the stretch."));
+    out.push("<b>Why it matters.</b> Time spent absorbed in something, like scrolling, a game, or deep work, slips by faster than it feels. That's why an hour on your phone can feel like 20 minutes. If you want to know where your time goes, a clock or a timer beats your gut.");
+    return out.map(function(x){return "<p>"+x+"</p>"}).join("")}
+
+  function chart(){
+    var W=480,H=190,L=20,R=20,T=24,Bm=40,lo=0,hi=Math.max(20,Math.ceil(Math.max.apply(null,S.trials.map(function(t){return t.t}))/5)*5);
+    function X(v){return L+(Math.min(hi,v)-lo)/(hi-lo)*(W-L-R)}
+    var rows={idle:T+30,busy:T+90},g="";
+    for(var v=0;v<=hi;v+=5){g+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="'+T+'" y2="'+(H-Bm+4)+'" stroke="'+(v===10?"var(--muted)":"var(--line)")+'" stroke-width="'+(v===10?1.5:1)+'"'+(v===10?' stroke-dasharray="4 3"':'')+'/>';
+      g+='<text x="'+X(v)+'" y="'+(H-Bm+20)+'" text-anchor="middle">'+v+'s</text>'}
+    g+='<text x="'+(W/2)+'" y="'+(H-4)+'" text-anchor="middle">real seconds before you pressed stop</text>';
+    g+='<text x="'+L+'" y="'+(rows.idle-16)+'">Quiet</text><text x="'+L+'" y="'+(rows.busy-16)+'">Busy</text>';
+    S.trials.forEach(function(t,k){g+='<circle cx="'+X(t.t)+'" cy="'+(rows[t.m]+((k%3)-1)*5)+'" r="7" fill="var(--'+t.m+')" fill-opacity=".85"/>'});
+    $("chart").innerHTML=g}
+
+  function load(){try{return JSON.parse(localStorage.getItem("timesense.runs")||"[]")}catch(e){return []}}
+  function save(r){var a=load();a.unshift(r);a=a.slice(0,20);try{localStorage.setItem("timesense.runs",JSON.stringify(a))}catch(e){}hist(a)}
+  function hist(a){if(!a.length){$("histWrap").hidden=true;return}$("histWrap").hidden=false;
+    $("hist").innerHTML=a.slice(0,8).map(function(r){var d=new Date(r.d);
+      return "<tr><td>"+(d.getMonth()+1)+"/"+d.getDate()+" "+d.toTimeString().slice(0,5)+"</td><td>"+r.i.toFixed(1)+"s</td><td>"+r.b.toFixed(1)+"s</td><td>"+(r.x>=0?"+":"")+r.x+"%</td></tr>"}).join("");
+    var s=0;a.forEach(function(r){s+=r.x});
+    $("histAvg").textContent=a.length>1?("Average stretch across "+a.length+" runs: "+(Math.round(s/a.length)>=0?"+":"")+Math.round(s/a.length)+"%."):"Play a few more runs to see your average."}
+
+  function reset(){clearTimeout(stim);S=fresh();$("results").hidden=true;$("main").hidden=false;$("err").textContent="";ui();idleScreen();
+    $("stage").innerHTML='<div class="msg">Press start when you\'re ready. First up: a '+(S.order[0]==="idle"?"quiet":"busy")+' try.</div>'}
+  $("main").addEventListener("click",function(){if(S.done)return;if(S.running)stop();else start()});
+  $("odd").addEventListener("pointerdown",function(e){e.preventDefault();parity(true,this)});
+  $("even").addEventListener("pointerdown",function(e){e.preventDefault();parity(false,this)});
+  ["odd","even"].forEach(function(id){$(id).addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();parity(id==="odd",this)}})});
+  $("restart").addEventListener("click",reset);
+  $("again").addEventListener("click",function(){reset();window.scrollTo({top:0})});
+  reset();hist(load());
+})();
+</script>
+
+</body>
+</html>
